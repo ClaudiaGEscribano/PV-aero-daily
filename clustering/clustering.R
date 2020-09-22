@@ -116,7 +116,7 @@ ajuste  <- function(x){
 
 ## I apply this 'ajuste' function to every element of 'Indice' (they are lists of kmeans results)
 
-rmse_exp <- ajuste(as.vector(unlist(criterioDB)))
+rmse_exp <- ajuste(as.vector(unlist(criterioC)))
 
 ## Ponderate the rmse from lm results.
 ajuste_ponderado  <- function(x){
@@ -133,7 +133,12 @@ minimo <- which(rmse_expP == min(rmse_expP))
 ############################
 ##some plots:
 
-km  <- km_exp[[11]]$cluster
+## prueba con bic
+
+km <- bic$classification
+
+##
+km  <- km_exp[[13]]$cluster
  
 pl  <- cbind(data4pca, km)
 pl  <- cbind(pl, data.df)
@@ -143,33 +148,37 @@ library(lattice)
 
 myTheme  <- brewer.pal(12,"Paired")
 
+nb.cols <- 14
+mycolors <- colorRampPalette(brewer.pal(12, "Set1"))(nb.cols)
+myTheme  <- mycolors
+
 xyplot(pv~ghidfm|km, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
 xyplot(ghidfm~Mean|km, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
 xyplot(pv~Mean|km, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
 xyplot(ghidfm~cfcdfm, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
 xyplot(pv~Mean, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
 xyplot(Mean~cfcdfm, groups=km, pch=20, auto.key=TRUE,cex=1,data=pl,
-       key=list(columns=12, space='top',cex=1,between=0.5,
+       key=list(columns=14, space='top',cex=1,between=0.5,
                points=list(col=myTheme, pch=20,cex=1.3)),
        par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
 
@@ -184,7 +193,7 @@ densityplot(~pv, groups=km, data=pl, plot.points=FALSE, lwd=3, auto.key=TRUE, pa
 #pl2  <-  pl[pl$km != 12,]
 pdf("pvdensity_bycluster_km12.pdf")
 densityplot(~pv, groups=km, data=pl, plot.points=FALSE, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=2)),
             par.settings=list(superpose.line=list(col=myTheme, lwd=3)))
 dev.off()
@@ -203,7 +212,7 @@ densityplot(~pv|Month, groups=km, data=pl, plot.points=FALSE, lwd=4,
 
 pdf("AODdensity_byclusterkm12.pdf")
 densityplot(~Mean, groups=km, data=pl, plot.points=FALSE, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=2)),
             par.settings=list(superpose.line=list(col=myTheme, lwd=3)))
 dev.off()
@@ -231,9 +240,10 @@ dev.off()
 
 ########################################
 pdf("matrix_bycluster.pdf")
-splom(pl[,c(1,2,3,4,6,7)],groups=km, par.settings=list(superpose.symbol=list(col=myTheme, pch=20)))
+splom(pl[,c(2,3,4,5,7,8)],groups=km, par.settings=list(superpose.symbol=list(col=myTheme, pch=20)))
 dev.off()
 
+splom(pl[,c(10,11,12,13)],groups=km, par.settings=list(superpose.symbol=list(col=myTheme, pch=20)))
 
 ######################################
 pdf("histogram_pv_bycluster.pdf")
@@ -252,46 +262,46 @@ pl$Month  <- as.factor(month(pl$Date))
 ##pl2  <-  pl[pl$km != 11,]
  
 densityplot(~cfcdfm|Month, groups=km, data=pl, plot.points=FALSE, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=2)),
             par.settings=list(superpose.line=list(col=myTheme, lwd=3)))
 
 xyplot(Mean~dnidfm|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=2,lwd=3)))
 
 pdf("AOD_cfc_bycluster_bymonth.pdf", width=10, height=7)
 xyplot(Mean~cfcdfm|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=1.5,lwd=3)))
 dev.off()
 
 pdf("pv_AOD_bycluster_bymonth.pdf", width=10, height=7)
 xyplot(pv~Mean|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=2,lwd=3)))
 dev.off()
 
 pdf("pv_kt_bycluster_bymonth.pdf", width=10, height=7)
 xyplot(pv~Kt|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=2,lwd=3)))
 dev.off()
 
 pdf("kt_AOD_bycluster_bymonth.pdf")
 xyplot(Kt~Mean|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=2,lwd=3)))
 dev.off()
 
 pdf("cfcdfm_kt_bycluster_bymonth.pdf")
 xyplot(cfcdfm~Kt|Month, groups=km, pch=20,data=pl, lwd=4,
-            key=list(columns=12, space='top',cex=1, between=0.5,
+            key=list(columns=14, space='top',cex=1, between=0.5,
                      points=list(col=myTheme, pch=20, cex=1.5)),
        par.settings=list(superpose.symbol=list(col=myTheme, cex=2,lwd=3)))
 dev.off()

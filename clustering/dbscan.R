@@ -10,20 +10,34 @@ data  <- data[366:nrow(data),]
 data4clus  <- data[which(!is.na(data$Mean)),1:6]
 
 ################################################
- 
+data  <- data.df
+
+##
 db  <- dbscan(data4clus[,2:5], eps=0.05, minPts = 5)
 
 dbscan::kNNdistplot(data4clus[,2:5], k =  5)
-abline(h = 8, lty = 2)
+abline(h = 6, lty = 2)
 
-db  <- dbscan(data4clus[,2:5], eps=24, minPts = 5)
+db  <- dbscan(data4clus[,2:5], eps=5, minPts = 5)
+
+pairs(data4clus[,2:5], col = db$cluster + 1L)
+
+##
+db  <- dbscan(data, eps=0.05, minPts = 5)
+
+dbscan::kNNdistplot(data, k =  5)
+abline(h = 1, lty = 2)
+
+db  <- dbscan(data,, eps=1, minPts = 5)
+
+pairs(data, col = db$cluster + 1L)
 
 ###################################################
 
-BIC <- mclustBIC(data4clus[,2:6])
+BIC <- mclustBIC(data4clus[,2:5])
 summary(BIC)
 plot(BIC)
-
+ 
 mod1 <- Mclust(data4clus[,2:5], x = BIC)
 summary(mod1, parameters = TRUE)
 
