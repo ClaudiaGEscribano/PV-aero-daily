@@ -1,0 +1,363 @@
+## explore the data .
+ 
+library(raster)
+library(maps)
+library(mapdata)
+library(maptools)
+library(reshape2)
+library(latticeExtra)
+
+## PV data time series.
+
+pv  <-  read.table("../../data/pv/ree/elec_day_ree_2011_2016.txt")
+pv$Date  <-  seq(as.Date('2011-01-01'),as.Date('2016-12-31'), "day") 
+ 
+pdf("pv_ree_CI_20112016.pdf", width=15, height=7)
+xyplot(pv~Date, data=pv, type='b', cex=0.5, alpha=0.8, col='Orange',auto.key=TRUE, grid=TRUE)
+dev.off()
+
+pdf("pv_ree_histogram_CI_20112016.pdf", width=15, height=7)
+histogram(~pv, data=pv, breaks=60)
+dev.off()
+
+densityplot(~pv, data=pv, plot.points=TRUE, lwd=1.8, auto.key=TRUE)
+
+## cmsaf GHI data
+ 
+ghi  <-  stack("../../data/solar/cmsaf/daily/SISdm20102016_CI.nc")
+
+## lineas costa
+data('worldMapEnv')
+
+ext <- extent(ghi)
+crs.lonlat  <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+
+boundaries_CI <- map('worldHires',
+                     regions="Canary Islands",
+                     xlim = ext[1:2], ylim = ext[3:4],
+                     fill=TRUE,
+                     exact=FALSE,
+                     plot = FALSE)
+ 
+## Convert the result to a SpatialPolygons object:
+
+IDs <- sapply(strsplit(boundaries_CI$names, ":"), function(x) x[1])
+boundaries_spCI<- map2SpatialPolygons(boundaries_CI,
+                                    IDs=IDs, proj4string=crs.lonlat)
+
+ 
+## or convert the result to a SpatialLines object:
+boundaries_linesCI <- map2SpatialLines(boundaries_CI,
+                               proj4string = crs.lonlat)
+
+## levelplot(ghi[[1:10]])+layer(sp.lines(boundaries_linesCI))
+
+## create the mask. Sum and mean of the land.
+
+ghiLand  <- mask(ghi, boundaries_spCI)
+
+ghidf  <- as.data.frame(ghiLand)
+ghidfs  <- apply(ghidf, 2L, FUN=function(x) sum(x,na.rm=TRUE))
+ghidfm  <- apply(ghidf, 2L, FUN=function(x) mean(x,na.rm=TRUE))
+
+ghidf  <- as.data.frame(t(rbind(ghidfs, ghidfm)))
+
+ghidf$Date  <-  seq(as.Date('2010-01-01'),as.Date('2016-12-31'), "day")
+
+
+## para ver:
+xyplot(ghidfm~Date, data=ghidf, type='b', cex=0.5, alpha=0.8, col='Orange',auto.key=TRUE, grid=TRUE)
+
+## uno ghi + pv:
+
+dat  <- merge(pv, ghidf, all=TRUE)
+
+##para ver:
+xyplot(dat$pv+dat$ghidfm~Date, data=dat, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+
+## incluyo aero.
+
+aero  <- read.table('../../data/aero/aeronet/aod_aeronet_all_CI_20102016.txt')
+
+aero$Date  <- as.Date(aero$Date)
+all  <- merge(dat, aero, all=TRUE)
+
+## pdf("pv_ghi_aero_CI_20112014.pdf", width=15, height=7)
+## xyplot(all$pv+all$ghidfm+all$Mean*100~Date, data=all, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+## dev.off()
+
+## incluyo CFC
+
+cfc  <-  stack("../../data/cloud/cmsaf/CFCdm20102016_CI2.nc", varname='cfc')
+ 
+cfcLand  <- mask(cfc, boundaries_spCI)
+
+cfcdf  <- as.data.frame(cfcLand)
+cfcdfs  <- apply(cfcdf, 2L, FUN=function(x) sum(x,na.rm=TRUE))
+cfcdfm  <- apply(cfcdf, 2L, FUN=function(x) mean(x,na.rm=TRUE))
+
+cfcdf  <- as.data.frame(t(rbind(cfcdfs, cfcdfm)))
+
+cfcdf$Date  <-  seq(as.Date('2010-01-01'),as.Date('2016-12-31'), "day")
+
+all  <- merge(all, cfcdf, all=TRUE)
+
+## incluyo DNI
+ 
+dni  <-  stack("../../data/solar/cmsaf/daily/DNIdm20102013_CI.nc", varname='DNI')
+
+dniLand  <- mask(dni, boundaries_spCI)
+
+dnidf  <- as.data.frame(dniLand)
+dnidfs  <- apply(dnidf, 2L, FUN=function(x) sum(x,na.rm=TRUE))
+dnidfm  <- apply(dnidf, 2L, FUN=function(x) mean(x,na.rm=TRUE))
+ 
+dnidf  <- as.data.frame(t(rbind(dnidfs, dnidfm)))
+
+dnidf$Date  <-  seq(as.Date('2010-01-01'),as.Date('2013-12-31'), "day")
+
+all  <- merge(all, dnidf, all=TRUE)
+
+## se representa pv vs aero por meses?
+ 
+month  <- function(x) format(as.Date(x), '%m')
+
+all$Month  <- as.factor(month(all$Date))
+
+## incluyo temperatura:
+
+tax  <-  stack("../../data/tas/ecad/tx_0.1deg_CI_20102016.nc")
+
+taxLand  <- mask(tax, boundaries_spCI)
+
+taxdf  <- as.data.frame(taxLand)
+taxdfs  <- apply(taxdf, 2L, FUN=function(x) sum(x,na.rm=TRUE))
+taxdfm  <- apply(taxdf, 2L, FUN=function(x) mean(x,na.rm=TRUE))
+
+taxdf  <- as.data.frame(t(rbind(taxdfs, taxdfm)))
+
+taxdf$Date  <-  seq(as.Date('2010-01-01'),as.Date('2016-12-31'), "day")
+
+all  <- merge(all, taxdf, all=TRUE)
+## Potencia instalada
+
+pvpower  <- read.csv("../../data/pv/potencia instalada/pvpowermw_data.csv")
+
+## incluyo columna de año para filtrar
+
+year  <- function(x) format(as.Date(x), '%Y')
+all$Year  <- as.factor(year(all$Date))
+
+pvpower  <- pvpower[pvpower$year >= 2010,c(2,4)]
+
+all[all$Year == 2010, 4]  <- all[all$Year == 2010, 4]/pvpower[pvpower$year == 2010, 2]
+all[all$Year == 2011, 4] <- all[all$Year == 2011, 4]/pvpower[pvpower$year == 2011, 2] 
+all[all$Year == 2012, 4] <- all[all$Year == 2012, 4]/pvpower[pvpower$year == 2012, 2] 
+all[all$Year == 2013, 4] <- all[all$Year == 2013, 4]/pvpower[pvpower$year == 2013, 2]
+all[all$Year == 2014, 4] <- all[all$Year == 2014, 4]/pvpower[pvpower$year == 2014, 2]
+all[all$Year == 2015, 4] <- all[all$Year == 2015, 4]/pvpower[pvpower$year == 2015, 2]
+all[all$Year == 2016, 4] <- all[all$Year == 2016, 4]/pvpower[pvpower$year == 2016, 2] 
+
+## La potencia acumulada en cada año está en kw/1000   
+
+#############
+## representaciones:
+ 
+pdf("pv_ghi_aero_CI_20112014.pdf", width=15, height=7)
+xyplot(all$pv+all$ghidfm/100+all$Mean~Date, data=all,type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+dev.off()
+
+## linear model pv vs ghi
+pdf("pv_ghidfm_bymonth_scatter.pdf")
+xyplot(pv~ghidfm|Month, groups=Month, pch=20, cex=1, data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+pdf("pv_dnidfm_bymonth_scatter.pdf")
+xyplot(pv~dnidfm|Month, groups=Month, pch=20, cex=1, data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+## linear model pv vs ghi + aero
+
+pdf("pv_aero_bymonth_scatter.pdf")
+xyplot(pv~Mean|Month, groups=Month, pch=20, cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+## tomando valores de Mean > 0.2
+dusty  <- all[all$Mean > 0.2,]
+
+pdf("pv_dusty_bymonth_scatter.pdf")
+xyplot(pv~Mean|Month, groups=Month, pch=20, cex=1,data=dusty, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+pdf("ghi_dusty_bymonth_scatter.pdf")
+xyplot(ghidfm~Mean|Month, groups=Month, pch=20, cex=1,data=dusty, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+all$aero  <- as.factor(cut(all$Mean, breaks=c(0.03742, 0.05778, 0.10387, 0.10365,0.2,1.39541)))
+
+pdf("pv_cfcdm_aerofactor_bymonth_scatter.pdf")
+xyplot(pv~cfcdfm|Month, groups=aero, pch=20, auto.key=TRUE,cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+ 
+pdf("pv_ghidm_aerofactor_bymonth_scatter.pdf")
+xyplot(pv~ghidfm|Month, groups=aero, pch=20, auto.key=TRUE,cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+pdf("pv_dnidm_aerofactor_bymonth_scatter.pdf")
+xyplot(pv~dnidfm|Month, groups=aero, pch=20, auto.key=TRUE,cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+pdf("cfcdfm_dnidm_aerofactor_bymonth_scatter.pdf")
+xyplot(cfcdfm~dnidfm|Month, groups=aero, pch=20, auto.key=TRUE,cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+
+pdf("cfcdfm_ghidm_aerofactor_bymonth_scatter.pdf")
+xyplot(cfcdfm~ghidfm|Month, groups=aero, pch=20, auto.key=TRUE,cex=1,data=all, layout=c(4,3),
+       panel = function(x, y, ...) {
+           panel.xyplot(x, y, ...)
+           panel.lmline(x, y, ...)
+       })
+dev.off()
+##########################################
+## scatterplot
+
+myTheme  <- brewer.pal(12,"Paired")
+ 
+sc  <- all[,c(4,7,12,14,16,17)]
+ 
+pdf("matrix_colormonth.pdf", width=12,height=12)
+splom(sc[,1:5], groups=sc$Month,
+      key=list(columns=12, space='top',cex=1,between=0.5,
+               points=list(col=myTheme, pch=20,cex=1.3),
+                           text=list(c("Ene","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"))),
+      par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
+dev.off()
+ 
+dusty  <- dusty[,c(4,7,12, 14,16,17)]
+
+pdf("matrix_dusty_colormonth.pdf", width=12, height=12)
+splom(dusty[,1:5], groups=dusty$Month,
+      key=list(columns=12, space='top',cex=1, between=0.5,
+               points=list(col=myTheme, pch=20,cex=2),
+                           text=list(c("Ene","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"))),
+      par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=1)))
+dev.off()
+
+
+#########################################
+## create a dusty factor:
+
+sc$dusty  <- "no-dusty"
+sc[which(sc[,3] > 0.2), 6]  <- "dusty"
+
+splom(sc[,1:5], groups=sc[,6], cex=0.5, pch=20, alpha=0.5)
+
+month  <- function(x) format(as.Date(x), '%m')
+
+sc$Month  <- as.factor(month(all$Date))
+
+#########################################
+## time series with cfc and dni
+
+pdf("pv_ghi_aero_cfc_dni_CI_20112014.pdf", width=15, height=7)
+xyplot(all$pv+all$ghidfm/100+all$Mean+all$cfcdfm/100+all$dnidfm/100~Date, data=all, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+dev.off()
+
+pdf("ghi_aero_cfc_dni_CI_20112014.pdf", width=15, height=7)
+xyplot(all$ghidfm+all$Mean*100+all$cfcdfm+all$dnidfm~Date, data=all, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+dev.off()
+
+pdf("ghi_aero_cfc_CI_20112014.pdf", width=15, height=7)
+xyplot(all$ghidfm+all$Mean*100+all$cfcdfm~Date, data=all, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+dev.off()
+
+
+###############
+## data frame for clustering:
+
+df  <-  all[,c(1,4,7,12,14,16,17)]
+
+write.table(df, file="data4clustering.txt")
+
+################
+
+## compute clearness index
+
+library(solaR)
+
+## lat lon of the CI:
+
+lat  <- 27.973820
+
+BTd  <- fBTd(mode = "serie",
+##         year = as.POSIXlt(Sys.Date())$year+1900,
+         start = paste('01-01-',2010,sep = ''),
+         end = paste('31-12-',2016,sep = ''),
+                        format = '%d-%m-%Y')
+
+sol  <-  calcSol(lat, BTd)
+solD  <- as.zooD(sol)
+B0  <- solD$Bo0d
+
+df$B0  <- B0
+
+Kt  <- (df$ghidfm*24)/df$B0 ## los datos de radiación son W/m2, multiplico por 24.
+df$Kt  <- Kt
+
+
+splom(data[,c(2,3,4,5,9)], groups=data$Month,
+      key=list(columns=12, space='top',cex=1, between=0.5,
+               points=list(col=myTheme, pch=20,cex=2),
+                           text=list(c("Ene","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"))),
+      par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=1)))
+
+df  <- data
+splom(df[,c(2,3,4,5,9)], groups=data$Month, data=df,
+      key=list(columns=12, space='top',cex=1,between=0.5,
+               points=list(col=myTheme, pch=20,cex=1.3),
+                           text=list(c("Ene","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"))),
+      par.settings=list(superpose.symbol=list(col=myTheme, pch=20, cex=0.5)))
+
+pdf("aod_Kt_20102013_series.pdf")
+xyplot(Mean+Kt~as.Date(Date), data=data, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+dev.off()
+
+xyplot(as.vector(Mean)~as.vector(Kt), data=df, type='b', cex=0.5, alpha=0.8, auto.key=TRUE, grid=TRUE)
+
+
+write.table(df, file="data4clustering.txt") 
