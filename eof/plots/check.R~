@@ -1,0 +1,115 @@
+## Check that the cluster for different days represent similar patterns.
+
+library(raster)
+library(rasterVis)
+
+## 1. load the cluster data
+
+load("/home/claudia/ideas/PV-aero-daily/eof/output/gz500/clusters_kmeans_yearlygz500.Rdata")
+
+
+## 2. load the slp data
+
+slp  <- stack("/home/claudia/ideas/PV-aero-daily/data/era5/gz500/gz500dm_1989_2019.nc")
+mslp  <-  mean(slp)
+anom  <- slp-mslp
+
+## 3. creo un vector con los días y el cluster:
+
+cluster  <-  km$cluster
+cluster  <-  as.data.frame(cluster)
+cluster$Date  <-  seq(as.Date("1989-01-01"), as.Date("2019-12-31"), "day")
+rownames(cluster)  <- seq(1:11322)
+## 4. Extraigo algunos de los clusters para representarlos
+
+hist(cluster$cluster)
+
+## cojo el 3 que es el que menos tiene.
+
+c3  <- cluster[cluster$cluster == 3, ]
+
+## tomo los 6 primeros días, que son las capas 48,49,54,55,56,60 de los datos de spl
+
+selection  <- as.integer(rownames(c3)[1:20])
+
+## 4. extraigo de los datos slp
+ 
+levelplot(slp[[selection]])
+
+## 5. el cluster que más hay es el 4
+
+c4  <- cluster[cluster$cluster == 4, ]
+selection  <- as.integer(rownames(c4)[100:110])
+ 
+levelplot(slp[[selection]])
+
+######### MAPA ####
+
+## lineas costa
+data('worldMapEnv')
+
+ext <- extent(anom[[1]])
+crs.lonlat  <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+
+boundaries_CI <- map('worldHires',
+                     xlim = ext[1:2], ylim = ext[3:4],
+                     fill=TRUE,
+                     exact=FALSE,
+                     plot = FALSE)
+ 
+## Convert the result to a SpatialPolygons object:
+
+IDs <- sapply(strsplit(boundaries_CI$names, ":"), function(x) x[1])
+boundaries_spCI<- map2SpatialPolygons(boundaries_CI,
+                                    IDs=IDs, proj4string=crs.lonlat)
+
+ 
+## or convert the result to a SpatialLines object:
+boundaries_linesCI <- map2SpatialLines(boundaries_CI,
+                               proj4string = crs.lonlat)
+
+#############################################################
+ 
+## Representción de la media de todos los días:
+c4  <- cluster[cluster$cluster == 4, ]
+selection  <- as.integer(rownames(c4))
+
+pdf("mean_pattern_c4_gz500.pdf")
+levelplot(mean(anom[[selection]]), par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-1200,1200,100), margin=FALSE)+layer(sp.lines(boundaries_linesCI))
+dev.off()
+ 
+c1  <- cluster[cluster$cluster == 1, ]
+selection  <- as.integer(rownames(c1))
+pdf("mean_pattern_c1_gz500.pdf")
+levelplot(mean(anom[[selection]]), margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-2200,2200,200))+layer(sp.lines(boundaries_linesCI))
+dev.off()
+ 
+c2  <- cluster[cluster$cluster == 2, ]
+selection  <- as.integer(rownames(c2))
+pdf("mean_pattern_c2_gz500.pdf") 
+levelplot(mean(anom[[selection]]), margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-2200,2200,200))+layer(sp.lines(boundaries_linesCI))
+dev.off()
+
+c3  <- cluster[cluster$cluster == 3, ]
+selection  <- as.integer(rownames(c3))
+pdf("mean_pattern_c3_gz500.pdf")
+levelplot(mean(anom[[selection]]),margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-1600,1600,100))+layer(sp.lines(boundaries_linesCI))
+dev.off()
+ 
+c5  <- cluster[cluster$cluster == 5, ]
+selection  <- as.integer(rownames(c5))
+pdf("mean_pattern_c5_gz500.pdf")
+levelplot(mean(anom[[selection]]),margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-1600,1600,100))+layer(sp.lines(boundaries_linesCI))
+dev.off()
+
+c6  <- cluster[cluster$cluster == 6, ]
+selection  <- as.integer(rownames(c6))
+pdf("mean_pattern_c6_gz500.pdf")
+levelplot(mean(anom[[selection]]),margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-850,850,100))+layer(sp.lines(boundaries_linesCI))
+dev.off()
+
+c7  <- cluster[cluster$cluster == 7, ]
+selection  <- as.integer(rownames(c7))
+pdf("mean_pattern_c7.pdf")
+levelplot(mean(anom[[selection]]),margin=FALSE, par.settings=rasterTheme(region=rev(brewer.pal(11,'RdBu'))), at=seq(-1500,1500,100))+layer(sp.lines(boundaries_linesCI))
+dev.off()

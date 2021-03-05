@@ -1,0 +1,525 @@
+---
+title: "clustering PV generation days over the CI based on atmospheric variables"
+author: ""
+date: " `r Sys.Date()`"
+output:  
+xaringan::moon_reader:  
+lib_dir: libs  
+nature:  
+highlightStyle: github  
+countIncrementalSlides: false
+---
+
+# Summary
+
+The present work aims to find and appropriate methodology to classify days depending on the different atmospheric variables involved in the PV production.  We make use of different unsupervised classification methods to classify daily PV production over a target area using variables such as: solar radiation, maximum temperature, cloud cover, relative humidity and aerosols optical depth. The classification allow us to understand PV daily variability over the region studied and its drivers, at the same time that it becomes a method that could be applied in different regions and periods. 
+
+We will focus the analysis over the Canary Island Archipelago for several reasons: in the first place, it is an autonomous system, which is isolated from the continent. Its size, makes it a good option to test if it is possible to find a classification of PV days of the whole system, where the atmospheric variables are influencing the whole system at the same time (in general terms).
+
+The use of an objective classification allow that it could be used for future projections, other complementarity assessments, and analysis in order to find differences in the classification in present period and future. The last will give us information about potential PV variability changes in the future. For instance, the use of climate projection data for classification, will tell us if there is an increase or a decrease in a type of day, which will also give an indication of changes in the PV distribution over the region.
+
+# Data
+
+**Datos utilizados en el análisis**
+
+Observations:
+
+- PV daily data from REE (**2011-2016**).
+- AOD from aeronet stations over the CI.
+- SIS (shortwave radiation) from CM-SAF (satellite).
+- CTC (total cloud cover) from CM-SAF (satellite).
+- Tax (maximum temperature) from E-OBS (obs + interpolation).
+- Kt :clearness index. It is calculated from GHI and radiationa at the top of the atmosphere.
+
+**Variables que se pueden añadir para el clustering:**
+
+Possible new variables: tmin, tmean (from EOBS),  rh (relative humidity from ERA5 ¿?¿)
+
+# Methods
+
+Two unsupervised classification methods are proposed for several reasons: in the first place, there are multiple atmospheric variables involved in the photovoltaic production over the system. For that reason, it is difficult to propose different thresholds for each variable in combination to the others. In addition, we try to overcome the subjectivity of a *supervised classification* making the method more universal to be used in other regions.
+
+We select two different methods in order to address their robustness at the same time that we can analyse if different methods are able to detect different characteristics in the classified clusters (or groups). 
+
+Once the classification is obtained, we can analysed the relationship between each cluster and the PV production of the Canary archipelago and a *labelled dataset* (days classified by type) of the period can be used for classifying a longer database. From the original period to the longer database, we can compare the % of days in each cluster, to analyse trends or variability among them. 
+
+**Esto de arriba es importante tenerlo en cuenta para periodos largos en el pasado, y para escenarios. Si para el periodo pasado utilizáramos el modelo de CNRM que tiene simulaciones con y sin aerosoles, se puede observar diferencias en la clasificación de los días entre las dos simulaciones. Creo que esto puede ser interesante, pero tengo que pedir las simulaciones. En principio no creo que haya problema en que me las dejen, pero las tengo que pedir cuando consideremos que hacer esto tiene sentido.** 
+
+The classification method is trained in the 2011-2016 period. Because we can see how the classification of the atmospheric variables is related to PV, and this is the period for the PV data. We obtain a labelled dataset that can be used to classify a longer time series. (**Probablemente se puede alargar un poco la serie de entrenamiento 2011-2016, porque creo que tenemos datos de años más recientes de satelite, EOBS and AOD, pero hay que comprobar que están todas las variables**). 
+
+**Entonces, ¿tiene sentido hacer primero la clasificación para estos años y después utilizar el periodo más largo? La única diferencia es que en un periodo más largo no hay datos de PV, pero hay datos de variables meteo.**
+
+The last step  would be to relate each cluster to the PV production. We can create a model from atmospheric variables to PV, that will be related to the a cluster. Test the model, see the errors and apply it for the longer time series.
+
+**Esto último me parece que no entraría dentro de este trabajo**
+
+The squeme of the work will be the next one:
+
+1. Unsupervised classification
+
+1.1 Create a labelled dataset using kmeans algorithm.
+
+We apply a kmeans clustering (partitional clustering method commonly used). In order to see the robutness of the classification we make:
+- test different cluster configurations.
+- select only more correlated cells for do the mean of the atmospheric variables over the islands.
+
+We use pattern identification to see the influence of the large scale over the classification.
+- We make the EOF analysis and kmeans for classify each day to a characteristic pattern.
+- We see then how each cluster obtained with the atmospheric variables have a predominance of different synoptic patterns.
+
+1.2 Create a labelled dataset using GMM (Generalized Mixture Model) clustering.
+
+Use of a different type of clustering method, it could be more appropriate because of the data type (continous).
+To test the robustness of the method:
+- GMM applied to the mean time series data obtained with all the cells.
+- GMM for mean time series obtained only with more correlated cells.
+
+We use pattern identification to see the influence of the large scale over the classification.
+- We make the EOF analysis and kmeans for classify each day to a characteristic pattern.
+- We see how each cluster have a predominance of different synoptic patterns.
+
+2. Classify days of a longer time period
+
+2.1 Use of a climate simulation (present) with no aerosol included.
+2.1 Use of a climate simulation (present) with daily aerosol variability included.
+
+- We can obtain differences in the classification among both simulations and analyse if there is changes in the amount of days in each cluster or interannual variability.
+
+# Preliminary results
+
+### 1. Kmeans for clustering
+
+#### 1.1 clustering day mean of the archipelago
+
+We apply the clustering considering the mean time series of the atmospheric variables for the whole archipelago.
+
+```{r, echo=FALSE}
+load('hckm_exp.Rdata')
+
+km  <-  km_exp[[10]]$cluster
+
+data  <- read.table("data4clustering.txt")
+cls  <-  read.csv("../eof/output/slp/cls_eof_yearly.csv")
+cls  <- cls[366:2557,]
+data  <-  cbind(data, cls)
+
+data  <- data[which(!is.na(data$Mean)),c(1,4,7,13,15,17,22,24)]
+
+data <- cbind(data, km)
+
+```
+```{r, echo=FALSE}
+library(RColorBrewer)
+library(latticeExtra)
+library(reshape2)
+ 
+myTheme  <- custom.theme(brewer.pal(12,"Paired"))
+myTheme$strip.background$col  <- 'lightgrey'
+
+nb.cols <- 14
+mycolors <- colorRampPalette(brewer.pal(12, "Paired"))(nb.cols)
+myTheme  <- custom.theme(mycolors)
+myTheme$strip.background$col  <- 'lightgrey'
+
+
+```
+The kmeans algorithm gives an optimum (after apply an index criteria) of 11 clusters. 
+
+```{r, echo=FALSE, fig.width=16, fig.height=10, warning=FALSE}
+d  <- data[,c(2:7, 9)]
+colnames(d)  <-  c("PV","GHI","AOD","CFC","TAX","Kt","cluster")
+d2  <-  melt(d, 'cluster')
+ 
+bwplot(value~km|variable,pch="|",cex=1,data=d2,horizontal=FALSE,
+       scales = list(relation = "free"),
+       par.settings=list(box.rectangle=list(col="black",fill=mycolors,alpha=1),
+                         box.umbrella=list(col="salmon",alpha=1),
+                         plot.symbol=list(col="salmon",alpha=1, cex=0.3),
+                         strip.background=list(col='lightgrey')))
+ 
+```
+The data distribution of each cluster can be observed in the boxplot figure. Clusters 4,5,9 and 10 are those with largest values of PV, which corresponds to largest values of GHI, also large values of maximum temperature, which indicates that most of the days correspond to central months of the year. There are 5 clusters with high loads of AOD 7,8,9,0 and 11. With the exception of clusters 9 and 10, they present a wide range of values for the rest of the variables.
+
+```{r, echo=FALSE, warning=FALSE}
+## statistics by cluster:
+
+stat <- with(data, aggregate(pv , by=list(km) , FUN=summary))
+
+library(data.table)
+stat  <- data.table(stat)
+names(stat)  <- c("cluster", "min", "1stQ","median","mean","3rdQ","max")
+
+percen  <- with(data, aggregate(km , by=list(km) , FUN=length)) 
+percen  <-  percen$x/nrow(data)*100
+
+stat$percentage  <- round(percen, 2)
+
+print(stat, digits=3)
+```
+Looking at the amount of days classified in each cluster, we see that cluster 11 contains only 0.7% of the data. Precisely, are those clusters with high loads of aerosols the ones with lower amount of days included. That indicates that the AOD variable it is the most relevant in order to classify data of these days. 
+
+In order to see the influence of the pressure patterns over the region and over the variables involved, we can see the amount of days correspondng to each pattern that are in each cluster.
+
+The patterns are obtained with an EOF analysis of the mean sea level preassure (**tuve problemas con los datos de geopotencial en 500 de era 5**) and then, the kmeans clustering is applied to assign each day to the most similar pattern. The 7 most important patterns, those that are able to retain more than 95% of tha variance are represented below:
+
+![image info](../eof/plots/mean_pattern_c1_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c2_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c3_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c4_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c5_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c6_slp.png){width=250px}
+![image info](../eof/plots/mean_pattern_c7_slp.png){width=250px}
+
+**Aquí hace falta una descripción de los patrones**
+
+C1:  
+C2: Atlanctic ridge ¿?  
+C3: NAO +  
+C4:  
+C5: European Blocking ¿?  
+C6: NAO - ¿?  
+C7: Scandinavian blocking  
+
+If we see the amount of days in each cluster that correspond to each pattern:
+
+```{r, echo=FALSE, fig.width=16, fig.height=8}
+histogram(~as.factor(cls)|as.factor(km), xlab='pattern', data=data, par.settings=myTheme)
+
+```
+It can be observed a predominant pattern in some of the clusters: most of the days in clusters 4,5,8,9,10 and 11 correspond to the 4th pattern. It is remarkable that clusters with higher load of AOD have the 4th pattern as the predominant pattern (clusters 8,9,10,11). Cluster 7 has also high loads of aerosols and pattern 1 is the predominant. Rest of clusters, have a more equal percentage of days corresponding to each cluster.
+
+#### 1.2 clustering day mean of the most correlated cells ghi~PV.
+
+We use for the classification the mean of the cells in the archipelago in which GHI is more correlated with PV. We do the mean of these cells to get the time series for the clustering method.
+
+```{r, echo=FALSE}
+load('hckm_exp_correlated.Rdata')
+
+km  <-  km_exp[[10]]$cluster
+
+data  <- read.table("data4clusteringCORRELATED.txt")
+cls  <-  read.csv("../eof/output/slp/cls_eof_yearly.csv")
+cls  <- cls[366:2557,]
+data  <-  cbind(data, cls)
+
+data  <- data[which(!is.na(data$Mean)),c(1,4,13,19,22,24,25,26,27)]
+
+data <- cbind(data, km)
+
+```
+
+```{r, echo=FALSE, fig.width=16, fig.height=10, warning=FALSE}
+d  <- data[,c(2,6,3,7,8,5,10)]
+colnames(d)  <-  c("PV","GHI","AOD","CFC","TAX","Kt","cluster")
+d2  <-  melt(d, 'cluster')
+ 
+bwplot(value~km|variable,pch="|",cex=1,data=d2,horizontal=FALSE,
+       scales = list(relation = "free"),
+       par.settings=list(box.rectangle=list(col="black",fill=mycolors,alpha=1),
+                         box.umbrella=list(col="salmon",alpha=1),
+                         plot.symbol=list(col="salmon",alpha=1, cex=0.3),
+                         strip.background=list(col='lightgrey')))
+
+```
+```{r, echo=FALSE}
+## statistics by cluster:
+
+stat <- with(data, aggregate(pv , by=list(km) , FUN=summary))
+stat  <- data.table(stat)
+names(stat)  <- c("cluster", "min", "1stQ","median","mean","3rdQ","max")
+
+percen  <- with(data, aggregate(km , by=list(km) , FUN=length)) 
+percen  <-  percen$x/nrow(data)*100
+
+stat$percentage  <- round(percen, 2)
+
+print(stat, digits=3)
+
+```
+It seems that there is not a big difference between clustering mean time series off all cells in the domain compared to use only the most correlated cells to construct the time series. The same number of clusters is obtained (with small differences if another index criteria is selected to obtain the optimum). Looking at the distribution of the data in the boxplot figures, the look very similar for all variables (**al comparar hay que tener en cuenta que el que se ha llamado cluster 1 en el primer caso no tiene porqué coincidir con el cluster 1 en el segundo caso, igual para todos los demás, por lo que hay que comparar todos**)
+
+
+```{r, echo=FALSE, fig.width=16, fig.height=8}
+histogram(~as.factor(cls)|as.factor(km), xlab='pattern', data=data, par.settings=myTheme)
+
+```
+In terms of the pattern related to each day in the different clusters, we observed 5 clusters where the pattern 4 is the predominant one. In the rest, there are more or less the same amount of days for each patterns, with the exception of cluster 7, which present most of the days related to the 1st. pattern.
+
+### 2. GMM for clustering
+
+#### 2.1 clustering day mean of the archipelago
+
+We apply the clustering considering the mean of atmospheric variables of the whole archipelago.
+
+```{r, echo=FALSE, include=FALSE}
+## load results obtained in clusteringBIC.R
+
+load('gmm_bic_classifiation_data.Rdata')
+ 
+## load the rest of data to see results of the clustering
+
+data  <- read.table("data4clustering.txt")
+cls  <-  read.csv("../eof/output/slp/cls_eof_yearly.csv")
+cls  <- cls[366:2557,]
+data  <-  cbind(data, cls)
+
+data  <- data[which(!is.na(data$Mean)),c(1,4,7,13,15,17,22,24)]
+
+data <- cbind(data, gmm)
+
+```
+To visualize the results of the classification with gmm:
+
+
+```{r, echo=FALSE, include=FALSE}
+## xyplot(pv~ghidfm|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~Mean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~cfcdfm|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~taxdfm|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(Mean~taxdfm|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## densityplot(~pv, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~taxdfm, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~ghidfm, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~cfcdfm, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~Kt, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+
+```
+
+```{r, echo=FALSE, fig.width=16, fig.height=10, warning=FALSE}
+d  <- data[,c(2:7, 9)]
+colnames(d)  <-  c("PV","GHI","AOD","CFC","TAX","Kt","cluster")
+d2  <-  melt(d, 'cluster')
+ 
+bwplot(value~gmm|variable,pch="|",cex=1,data=d2,horizontal=FALSE,
+       scales = list(relation = "free"),
+       par.settings=list(box.rectangle=list(col="black",fill=mycolors,alpha=1),
+                         box.umbrella=list(col="salmon",alpha=1),
+                         plot.symbol=list(col="salmon",alpha=1, cex=0.3),
+                         strip.background=list(col='lightgrey')))
+ 
+```
+
+The 15th clusters show differences in PV among them, althouh the spread of each cluster(whiskers of the boxplot) is high for most of them. Few exceptions are cluster 3,12,14. It can also be observed an overall difference between clusters 1,2,3,4,5 and 13, with mean values of PV considerably lower than for the rest. This is due to the differences depending on the time of the year, which can be seen from the differences in GHI variable.
+
+
+```{r, echo=FALSE, warning=FALSE}
+## statistics by cluster:
+
+stat <- with(data, aggregate(pv , by=list(gmm) , FUN=summary))
+
+library(data.table)
+stat  <- data.table(stat)
+names(stat)  <- c("cluster", "min", "1stQ","median","mean","3rdQ","max")
+
+percen  <- with(data, aggregate(gmm , by=list(gmm) , FUN=length)) 
+percen  <-  percen$x/nrow(data)*100
+
+stat$percentage  <- round(percen, 2)
+
+print(stat, digits=3)
+```
+
+```{r, echo=FALSE, include=FALSE}
+library(zoo)
+
+data$mon  <- unlist(lapply(data$Date, FUN=function(x) strsplit(as.character(as.yearmon(x)), split=" ")[[1]][1]))
+
+
+data$mon <- as.factor(data$mon)
+
+data$mon  <-  factor(data$mon, levels=c("ene","feb","mar", "abr", "may","jun", "jul", "ago","sep","oct", "nov", "dic"), order=TRUE)
+
+## create a season
+ 
+DJF  <- c("dic","ene","feb")
+MAM  <- c("mar", "abr","may")
+JJA  <- c("jun","jul","ago")
+SON  <- c("sep","oct","nov")
+
+data$mon  <-  as.character(data$mon)
+data$season  <- 1:nrow(data)
+ 
+for (i in DJF) {
+    data[data$mon == i , 11]  <- 'DJF' 
+}
+ 
+for (i in MAM) {
+    data[data$mon == i , 11]  <- 'MAM' 
+}
+
+for (i in JJA) {
+    data[data$mon == i , 11]  <- 'JJA' 
+}
+
+for (i in SON) {
+    data[data$mon == i , 11]  <- 'SON' 
+}
+
+```
+
+Comparison between the clustering classification and the weather types:
+
+```{r, echo=FALSE, fig.width=16, fig.height=8}
+histogram(~as.factor(cls)|as.factor(gmm), xlab='pattern', data=data, par.settings=myTheme)
+
+```
+
+Algunos clusters muestran un predominio claro de alguno de los patrones, como el 8,9, 10,11,12, y 14 del patrón 4; o el 3 de los patrones 1 y 2. Sin embargo, 1, 2, 4, 5, 6, 7 o 13 tienen un porcentaje muy simiar de todos los patrones. Esto es debido a que la clasificación con clusters no es capa de diferenciar mejor factores más locales que afectan a la producción PV, que los patrones sinópticos. 
+
+
+#### 2.2 clustering day mean of the most correlated ghi cells with PV.
+
+We use now the cells of the archipelago where GHI is more correlated with PV for do the mean of the variables.
+
+```{r, echo=FALSE}
+## load results obtained in clusteringBIC.R
+
+load('gmm_bic_classifiation_dataCORRELATED.Rdata')
+ 
+## load the rest of data to see results of the clustering
+ 
+data  <- read.table("data4clusteringCORRELATED.txt")
+cls  <-  read.csv("../eof/output/slp/cls_eof_yearly.csv")
+cls  <- cls[366:2557,]
+data  <-  cbind(data, cls)
+
+data  <- data[which(!is.na(data$Mean)),c(1,4,13,22,24,25,26,27)] ##,c(1,2,3,4,5,6,8,10)]
+
+data <- cbind(data, gmm)
+
+```
+
+```{r, echo=FALSE}
+## xyplot(pv~ghicormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~Mean, groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~cfccormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(Mean~cfccormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(pv~taxcormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## xyplot(Mean~taxcormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data,
+##        auto.key=list(lwd=2, space='top', between=0, columns=11),
+##        par.settings=myTheme) 
+
+## densityplot(~pv, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~taxcormean, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~ghicormean, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~cfccormean|as.factor(gmm), groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~Kt, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+## densityplot(~Mean, groups=gmm, pch=20,cex=1,data=data, lwd=5,plot.points=FALSE,
+##        auto.key=list(lwd=3, space='top', between=0, columns=7),
+##        par.settings=myTheme) 
+
+```
+
+
+```{r, echo=FALSE, fig.width=16, fig.height=10, warning=FALSE}
+d  <- data[,c(2:7,9)]
+colnames(d)  <-  c("PV","AOD","Kt","GHI","CFC","TAX","cluster")
+d2  <-  melt(d, 'cluster')
+ 
+bwplot(value~gmm|variable,pch="|",cex=1,data=d2,horizontal=FALSE,
+       scales = list(relation = "free"),
+       par.settings=list(box.rectangle=list(col="black",fill=mycolors,alpha=1),
+                         box.umbrella=list(col="salmon",alpha=1),
+                         plot.symbol=list(col="salmon",alpha=1, cex=0.3),
+                         strip.background=list(col='lightgrey')))
+
+```
+
+Results using GMM for clustering show a classification in 9 clusters, with differences in the mean value of PV for each one. AOD values are larger in cluster 3 and 8; and cluster 2 and 6 are also highly above the rest. Cluster 7 is the one with higher PV values, and it is clearly the one with higher GHI, less clouds and few aerosols. 
+
+
+```{r, echo=FALSE, warning=FALSE}
+## statistics by cluster:
+
+stat <- with(data, aggregate(pv , by=list(gmm) , FUN=summary))
+
+library(data.table)
+stat  <- data.table(stat)
+names(stat)  <- c("cluster", "min", "1stQ","median","mean","3rdQ","max")
+
+percen  <- with(data, aggregate(gmm , by=list(gmm) , FUN=length)) 
+percen  <-  percen$x/nrow(data)*100
+
+stat$percentage  <-  round(percen, 2)
+
+
+print(stat, digits=3)
+
+```
+```{r, echo=FALSE, fig.width=16, fig.height=8}
+histogram(~as.factor(cls)|as.factor(gmm), xlab='pattern', data=data, par.settings=myTheme)
+```
+En este caso, los clusters 3, 7, 8 y 9 tienen una prevalencia del patrón 4 muy alta, mientras que el resto tienen valores más igualados, con el cluster 1 con dos patrones más predominantes, el 1 y el 3. 
+
+La prevalencia de uno u otro patrón en algunos clusters, está posiblemente relacionada con el hecho de que cada cluster tenga la mayoría de sus días en una u otra estación. Es decir, los clusters con una alta radiación, son propios de los meses centrales del año, que tienen asociados ciertos patrones sinópticos característicos diferentes de los invernales. 
+
+### 3. Some remarks
+
+- Cuando se aplica el método de kmeans, no hay diferencia entre hacerlo a las series temporales creadas a partir de todas las celdas, y a partir de las celdas más correlacionadas con la producción PV.
+- El uso de GMM para clasificar da un número un poco más elevado de clusters, aunque en el mismo orden de magnitud, cuando se utilizan todas las celdas para hacer las series temporales del archipiélago. En cambio, cuando se utilizan únicamente aquellas celdas en las que GHI está más correlacionada con PV, el número de clusters con este método es el más bajo: 9.
+- En cuanto a la relación que existe entre la clasificación en clusters y la clasificación por patrones, se observa que tanto para los grupos obtenidos con kmeans, como los obtenidos con gmm, la predominancia de uno u otro patrón en cada uno de los clusters es similar para todos los métodos. 
+- La superposición de las distribuciones de PV para cada grupo es mayor cuando se utiliza el método de gmm, lo que es normal por la propia definición del modelo de clustering. Este último, considerará la probabilidad de los datos de estar en uno u otro cluster, y los límites entre ellos no serán rígidos, como sí ocurre cuando se utiliza el algoritmo de kmeans. En nuestro caso, donde los datos a clasificar son contínuos, esto puede considerarse como una fortaleza del método.
+
+El uso de dos métodos de clustering y un análisis de sensibilidad (utilización de distintas celdas para crear las series temporales que se utilizan en el método de clustering) permite analizar como de robusto es el método de clustering para clasificar los tipos de días.
+
+Para poder realizar la siguiente parte del análisis será necesario tomar una de las alternativas propuestas.

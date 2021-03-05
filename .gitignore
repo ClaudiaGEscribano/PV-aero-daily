@@ -7,6 +7,12 @@ documentos/
 # Referencias
 referencias/
 
+# Explore data
+exploratory/
+
+# EOF files
+eof/output/
+
 # History files
 .Rhistory
 .Rapp.history

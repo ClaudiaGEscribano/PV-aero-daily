@@ -1,0 +1,27 @@
+## Check that the cluster for different days represent similar patterns.
+
+library(raster)
+library(rasterVis)
+
+## 1. load the cluster data
+
+load("out/clusters_kmeans_yearly_slp_wrdomain.Rdata")
+
+
+## 2. load the slp data
+
+slp  <- stack("data/slpdm_1989_2019_wrdomain.nc")
+mslp  <-  mean(slp)
+anom  <- slp-mslp
+
+writeRaster(anom, filename='slpdm_anom_1989_2919_wrdomain.nc')
+
+## 3. creo un vector con los días y el cluster:
+
+cluster  <-  km$cluster
+cluster  <-  as.data.frame(cluster)
+cluster$Date  <-  seq(as.Date("1989-01-01"), as.Date("2019-12-31"), "day")
+rownames(cluster)  <- seq(1:11322)
+
+save(cluster, file='clusterdf_slpdm_1989_2019_wrdomain.nc')
+

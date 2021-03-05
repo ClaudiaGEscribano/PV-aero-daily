@@ -1,8 +1,0 @@
-## Create a data.frame with all the variables to investigate.
-
-## load pv
-pv  <-  read.table("../../data/pv/ree/elec_day_ree_2011_2013.txt")
-pv$Date  <-  seq(as.Date('2011-01-01'),as.Date('2013-12-31'), "day") 
-
-## load aod
-
